@@ -11,14 +11,15 @@ class Environment(object):
         players will have to make their choices.
         `penalty_matrix` is a (2 x 2) matrix of 2-tuples
         """
-        self.players = []
+        self.strategies = []
         self.number_of_iterations = number_of_iterations
         self.penalty_matrix = penalty_matrix
 
     def play(self, first, second):
+        first_player = first()
+        second_player = second()
         for _ in xrange(self.number_of_iterations):
             self.round(first_player, second_player)
-            pass
 
     def round(self, first_player, second_player):
 
@@ -28,20 +29,26 @@ class Environment(object):
         penalty = self.decide_penalty(choice_first, choice_second)
         first_penalty, second_penalty = penalty
 
-        first_player.remember(first_penalty, second_penalty)
-        second_player.remember(second_penalty, first_penalty)
+        first_player.remember(choice_first, choice_second)
+        second_player.remember(choice_second, choice_first)
 
     def decide_penalty(self, first_choice, second_choice):
         print self.penalty_matrix[first_choice][second_choice]
         return self.penalty_matrix[first_choice][second_choice]
 
-
     def add_player(self, new_player):
         # TODO: assert that new_player is of type Player
-        self.players.append(new_player)
-        
+        self.strategies.append(new_player)
 
-class Player(object):
+    def round_robin(self):
+        first_strategy = self.strategies[0]
+        second_strategy = self.strategies[1]
+        self.play(first_strategy, second_strategy)
+
+class PlainStrategy(object):
+
+    def __init__(self):
+        pass
 
     def remember(self, my_choice, opponent_choice):
         ''' save the previous choices into your state '''
@@ -56,5 +63,26 @@ class Player(object):
         pass
 
 
+class TitForTat(PlainStrategy):
+
+    def __init__(self, *args, **kwargs):
+        super(TitForTat, self).__init__(*args, **kwargs)
+        self.history = 0
+
+    def remember(self, my_choice, opponent_choice):
+        self.history = opponent_choice
+        assert(0 <= self.history <= 1)
+
+    def choose(self):
+        return self.history
+
+    def refresh(self):
+        self.history = 0
+
 penalty_matrix = [[(1, 1), (0, 10)], [(10, 0), (9, 9)]]
 env = Environment(500, penalty_matrix)
+
+env.add_player(PlainStrategy)
+env.add_player(TitForTat)
+
+env.round_robin()
