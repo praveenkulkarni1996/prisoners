@@ -15,9 +15,10 @@ class Environment(object):
         self.number_of_iterations = number_of_iterations
         self.penalty_matrix = penalty_matrix
 
-    def play(self, first, second):
-        first_player = first()
-        second_player = second()
+    def play(self, first_strategy, second_strategy):
+        first_player = first_strategy()
+        second_player = second_strategy()
+        print('---- {} vs {} ----'.format(first_strategy.__name__, second_strategy.__name__))
         for _ in xrange(self.number_of_iterations):
             self.round(first_player, second_player)
 
@@ -36,14 +37,18 @@ class Environment(object):
         print self.penalty_matrix[first_choice][second_choice]
         return self.penalty_matrix[first_choice][second_choice]
 
-    def add_player(self, new_player):
-        # TODO: assert that new_player is of type Player
+    def add_strategy(self, new_player):
+        # TODO: assert that new_player is of type Strategy
         self.strategies.append(new_player)
 
     def round_robin(self):
-        first_strategy = self.strategies[0]
-        second_strategy = self.strategies[1]
-        self.play(first_strategy, second_strategy)
+        if(len(self.strategies) < 2):
+            # TODO: raise too few error
+            raise NotImplementedError
+        for first_idx, first_strategy in enumerate(self.strategies):
+            for second_idx, second_strategy in enumerate(self.strategies):
+                if(first_idx < second_idx): break
+                self.play(first_strategy, second_strategy)
 
 class PlainStrategy(object):
 
@@ -79,10 +84,27 @@ class TitForTat(PlainStrategy):
     def refresh(self):
         self.history = 0
 
-penalty_matrix = [[(1, 1), (0, 10)], [(10, 0), (9, 9)]]
-env = Environment(500, penalty_matrix)
+class MutuallyAssuredDestruction(PlainStrategy):
 
-env.add_player(PlainStrategy)
-env.add_player(TitForTat)
+    def __init__(self, *args, **kwargs):
+        super(MutuallyAssuredDestruction, self).__init__(*args, **kwargs)
+        self.history = 0
+
+    def remember(self, my_choice, opponent_choice):
+        if(opponent_choice == 1):
+            self.history = 1
+
+    def choose(self):
+        return self.history
+
+    def refresh(self):
+        self.history = 0
+
+penalty_matrix = [[(1, 1), (0, 10)], [(10, 0), (9, 9)]]
+env = Environment(10, penalty_matrix)
+
+env.add_strategy(TitForTat)
+env.add_strategy(PlainStrategy)
+env.add_strategy(MutuallyAssuredDestruction)
 
 env.round_robin()
