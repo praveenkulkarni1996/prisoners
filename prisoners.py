@@ -104,7 +104,7 @@ class MutuallyAssuredDestruction(PlainStrategy):
     def refresh(self):
         self.history = 0
 
-def RandomStrategiesGenerator(confess_probability):
+def random_strategies_generator(confess_probability=1):
     ''' returns strategy that confesses with `confess_probability` '''
 
     class RandomStrategy(PlainStrategy):
@@ -134,18 +134,72 @@ def RandomStrategiesGenerator(confess_probability):
 
     return RandomStrategy
 
-penalty_matrix = [[(1, 1), (0, 10)], [(10, 0), (9, 9)]]
+def shortterm_memory_strategies_generator(memory_limit=0):
+    ''' 
+        Returns strategy that will by default keep silent. If the 
+        opponent at any time confesses then it will punish the opponent
+        for the next `memory_limit` times, by confessing, after which 
+        it will again keep silent.
+
+        If the opponent attacks it again while the strategy is confessing,
+        it will again keep it in memory.
+
+        -   MutuallyAssuredDestruction is a special case of this where
+            `memory_limit` is infinity.
+
+        -   TitForTat is a special case of this where `memory_limit` = 0.
+    '''
+
+    class MemoryBasedStrategy(PlainStrategy):
+
+        @classmethod
+        def rename_class(cls, args):
+            ''' renames strategies for more verbose information '''
+            cls.__name__ = 'MemoryBasedStrategy(memory_limit = {})'.format(args)
+
+        def __init__(self, *args, **kwargs):
+            super(MemoryBasedStrategy, self).__init__(*args, **kwargs)
+            self.memory_limit = memory_limit
+            self.time_to_forgive = 0
+            MemoryBasedStrategy.rename_class(self.memory_limit)
+
+        def remember(self, my_choice, opponent_choice):
+            if(opponent_choice == 1):
+                self.time_to_forgive = self.memory_limit
+            else:
+                self.time_to_forgive = max(0, self.time_to_forgive - 1)
+
+        def choose(self):
+            return 0 if (self.time_to_forgive == 0) else 1
+
+        def refresh(self):
+            self.time_to_forgive = 0
+
+    return MemoryBasedStrategy
+
+
+NUMBER_OF_ITERATIONS = 10
+
+penalty_matrix = [[(1, 1), (10, 0)], [(0, 10), (9, 9)]]
 env = Environment(10, penalty_matrix)
 
-always_confess_strategy = RandomStrategiesGenerator(1.0)
-always_omerta_strategy = RandomStrategiesGenerator(0.0)
-confused = RandomStrategiesGenerator(0.5)
+# strategies 
+always_confess_strategy = random_strategies_generator(1.0)
+always_omerta_strategy = random_strategies_generator(0.0)
+tit_for_tat = shortterm_memory_strategies_generator(1)
+mutually_assured_destruction = shortterm_memory_strategies_generator(NUMBER_OF_ITERATIONS + 1)
+
+
+confused = random_strategies_generator(0.5)
 
 # env.add_strategy(TitForTat)
 # env.add_strategy(PlainStrategy)
 # env.add_strategy(MutuallyAssuredDestruction)
 
-env.add_strategy(always_omerta_strategy)
-env.add_strategy(always_confess_strategy)
-env.add_strategy(confused)
+#   env.add_strategy(always_omerta_strategy)
+#   env.add_strategy(always_confess_strategy)
+#   env.add_strategy(tit_for_tat)
+#   env.add_strategy(mutually_assured_destruction)
+env.add_strategy(random_strategies_generator(0.5))
+env.add_strategy(shortterm_memory_strategies_generator(1))
 env.round_robin()
