@@ -1,9 +1,9 @@
 class Environment(object):
-    """
+    '''
     This defines the environment that the players play in.
     It will set the penalty for every choice, 
     and the number of games that are played.
-    """
+    '''
 
     def __init__(self, number_of_iterations, penalty_matrix):
         """ 
@@ -16,6 +16,7 @@ class Environment(object):
         self.penalty_matrix = penalty_matrix
 
     def play(self, first_strategy, second_strategy):
+        ''' simulates all rounds of a one-on-one match between 2 strategies '''
         first_player = first_strategy()
         second_player = second_strategy()
         print('---- {} vs {} ----'.format(first_strategy.__name__, second_strategy.__name__))
@@ -23,7 +24,7 @@ class Environment(object):
             self.round(first_player, second_player)
 
     def round(self, first_player, second_player):
-
+        ''' simulates one iteration between two players '''
         choice_first = first_player.choose()
         choice_second = second_player.choose()
 
@@ -34,14 +35,17 @@ class Environment(object):
         second_player.remember(choice_second, choice_first)
 
     def decide_penalty(self, first_choice, second_choice):
+        ''' sets the penalty for two players '''
         print self.penalty_matrix[first_choice][second_choice]
         return self.penalty_matrix[first_choice][second_choice]
 
     def add_strategy(self, new_player):
+        ''' adds the strategies to the environment '''
         # TODO: assert that new_player is of type Strategy
         self.strategies.append(new_player)
 
     def round_robin(self):
+        ''' plays a round robin tournament between all strategies '''
         if(len(self.strategies) < 2):
             # TODO: raise too few error
             raise NotImplementedError
@@ -100,11 +104,48 @@ class MutuallyAssuredDestruction(PlainStrategy):
     def refresh(self):
         self.history = 0
 
+def RandomStrategiesGenerator(confess_probability):
+    ''' returns strategy that confesses with `confess_probability` '''
+
+    class RandomStrategy(PlainStrategy):
+
+        @classmethod
+        def rename_class(cls, args):
+            ''' renames strategies for more verbose information '''
+            cls.__name__ = 'RandomStrategy({})'.format(args)
+
+        def __init__(self, *args, **kwargs):
+            super(RandomStrategy, self).__init__(*args, **kwargs)
+            assert(0 <= confess_probability <= 1)
+            self.confess_probability = confess_probability
+            RandomStrategy.rename_class(confess_probability)
+
+        def choose(self):
+            from random import randint 
+            from fractions import Fraction
+            ''' 
+                Given probability a/b, choose a random number `x`
+                in [1, b]. If x lies in [1, a] then confess 
+            '''
+            frac = Fraction(self.confess_probability).limit_denominator(10000)
+            random_number = randint(1, frac.denominator)
+            if(random_number <= frac.numerator): return 1
+            else: return 0
+
+    return RandomStrategy
+
 penalty_matrix = [[(1, 1), (0, 10)], [(10, 0), (9, 9)]]
 env = Environment(10, penalty_matrix)
 
-env.add_strategy(TitForTat)
-env.add_strategy(PlainStrategy)
-env.add_strategy(MutuallyAssuredDestruction)
+always_confess_strategy = RandomStrategiesGenerator(1.0)
+always_omerta_strategy = RandomStrategiesGenerator(0.0)
+confused = RandomStrategiesGenerator(0.5)
 
+# env.add_strategy(TitForTat)
+# env.add_strategy(PlainStrategy)
+# env.add_strategy(MutuallyAssuredDestruction)
+
+env.add_strategy(always_omerta_strategy)
+env.add_strategy(always_confess_strategy)
+env.add_strategy(confused)
 env.round_robin()
